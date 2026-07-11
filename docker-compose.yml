@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  datasette:
+    image: datasette/datasette:latest
+    container_name: job-search-db
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/data
+    command: >
+      datasette -p 8001 -h 0.0.0.0
+      /data/jobs.db
+      --metadata /data/metadata.json
+      --setting allow_download on
+      --setting sql_time_limit_ms 5000
+      --setting max_returned_rows 2000
+    restart: "no"

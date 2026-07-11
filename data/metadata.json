@@ -1,0 +1,22 @@
+{
+  "title": "job-search DB",
+  "description": "Ofertas, aplicaciones y eventos del sistema job-search",
+  "databases": {
+    "jobs": {
+      "tables": {
+        "offers": {
+          "sort": "priority",
+          "sort_desc": true
+        },
+        "events": {
+          "sort": "event_date",
+          "sort_desc": true
+        },
+        "applications": {
+          "sort": "updated_at",
+          "sort_desc": true
+        }
+      }
+    }
+  }
+}

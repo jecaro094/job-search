@@ -25,14 +25,14 @@ Si falla UNO de estos 5 → descartar sin evaluación:
 
 | Comando | Qué hace | Spec/Skill |
 |---------|----------|------------|
-| `/search` | Búsqueda multi-plataforma automática (Himalayas, HN, RemoteOK, WWR, ATS, LinkedIn opcional...) + evaluación dual + log diario | `specs/features/job-search.md` |
+| `/search` | Búsqueda multi-plataforma automática (Himalayas, HN, RemoteOK, WWR, ATS, LinkedIn, empresas objetivo...) + evaluación dual + log diario | `specs/features/job-search.md` |
 | `/match <url>` | Evaluación individual de una oferta | `specs/features/job-matching.md` |
-| `/daily` | Pipeline completo: diagnóstico companies, búsqueda multi-plataforma automática, LinkedIn opcional, evaluación dual, persistencia | `.opencode/commands/daily.md` |
+| `/daily` | Pipeline completo: diagnóstico companies, búsqueda multi-plataforma automática (Himalayas, HN, RemoteOK, WWR, ATS, LinkedIn, empresas objetivo...), evaluación dual, persistencia | `.opencode/commands/daily.md` |
 | `/apply <empresa>` | Registrar candidatura como 🟡 In progress | — |
 | `/estado-candidatura <empresa>` | Consultar estado de una candidatura | — |
 | `/cambiar-candidatura <empresa> <estado>` | Cambiar estado de candidatura | — |
-| `/lista-ofertas-diarias [YYYY-MM-DD]` | Lista ofertas activas de un log diario con tabla detallada y estado de aplicación | — |
-| `/lista-all-ofertas` | Lista todas las ofertas activas de todos los logs diarios consolidados | — |
+| `/lista-ofertas-diarias [YYYY-MM-DD]` | Lista ofertas activas de un log diario con tabla detallada y estado de aplicación | `.opencode/commands/lista-ofertas-diarias.md` |
+| `/lista-all-ofertas` | Lista todas las ofertas activas de todos los logs diarios consolidados | `.opencode/commands/lista-all-ofertas.md` |
 | `/descartar-oferta-diaria <empresa> [YYYY-MM-DD]` | Marca manualmente una oferta del log diario como descartada, con razón. No toca candidaturas. | `.opencode/commands/descartar-oferta-diaria.md` |
 
 ### Skills (tareas procedurales)
@@ -41,9 +41,9 @@ Si falla UNO de estos 5 → descartar sin evaluación:
 |---|---|
 | `multi-platform-search` | Obtener ofertas de Himalayas, RemoteOK, WWR, ATS, HN, y plataformas diversas |
 | `job-matcher` | Evaluación dual (Technical Fit + Career Fit → Priority) |
-| `store-job` | Persistir resumen en `data/jobs.db` (SQLite) |
+| `store-job` | Persistir resumen en `data/jobs.csv` |
 | `prepare-interview` | Preparar entrevista por empresa y stage |
-| `show-applied-jobs` | Listar candidaturas desde `data/jobs.db` (SQLite) |
+| `show-applied-jobs` | Listar candidaturas desde `companies/*/STATUS.md` |
 | `add-project` | Añadir experiencia laboral a `projects/` |
 
 ### Subagentes (juicio contextual)
@@ -53,6 +53,7 @@ Si falla UNO de estos 5 → descartar sin evaluación:
 | `@job-analyst` | Extraer datos estructurados de una oferta |
 | `@reviewer` | Validar evaluaciones duales antes de persistir |
 | `@career-advisor` | Analizar tendencias, conversión, brechas de skill |
+| `@interview-coach` | Coach técnico: system design, live coding Python, SQL, patrones distribuidos y STAR |
 
 ## Contexto @inyectable
 
@@ -63,34 +64,22 @@ Si falla UNO de estos 5 → descartar sin evaluación:
 | `@.opencode/context/project/filters.md` | Filtros duros de búsqueda |
 | `@.opencode/context/project/preferences.md` | Preferencias laborales |
 
-## Persistencia
+## Persistencia (ficheros)
 
-Toda la información de ofertas, evaluaciones, candidaturas y eventos se almacena en **SQLite** (`data/jobs.db`).  
-Los ficheros legacy (`data/jobs.csv`, `data/daily/*.md`, `companies/*/STATUS.md`) ya no se escriben.  
-Se pueden regenerar bajo demanda desde la DB si es necesario:
-```bash
-sqlite3 data/jobs.db ".mode csv" "SELECT * FROM offers" > data/jobs.csv
-```
+El sistema persiste en **tres capas de ficheros**, sin base de datos:
 
-Para explorar la DB visualmente:
-```bash
-docker compose up -d   # Datasette en http://localhost:8001
-# o sin Docker:
-pip install datasette && datasette data/jobs.db
-```
+| Capa | Formato | Propósito |
+|------|---------|-----------|
+| `data/jobs.csv` | CSV | Tracker plano de todas las ofertas evaluadas |
+| `data/daily/YYYY-MM-DD.md` | Markdown | Log diario con ofertas, evaluaciones y decisiones |
+| `companies/<slug>/STATUS.md` | Markdown | Estado de cada candidatura individual |
+| `data/search/YYYY-MM-DD/` | JSON | Raw results de búsquedas (debug) |
 
-## Helper DB
-
-Todos los comandos y skills usan `scripts/db.py` para leer/escribir en `data/jobs.db`.  
-Funciones principales:
-- `insert_offer()` — upsert de oferta evaluada (hash determinista evita duplicados)
-- `insert_event()` — registrar evento en el timeline
-- `upsert_application()` — registrar/actualizar candidatura
-- `discard_offer()` — marcar oferta como descartada
-- `get_offers_by_date()` — ofertas de una fecha
-- `get_all_active_offers()` — todas las ofertas activas
-- `get_application_status()` — estado completo de una candidatura
-- `get_status_summary()` — resumen agrupado por estado
+Reglas:
+- **`data/jobs.csv`** es el tracker maestro de ofertas. Cada evaluación nueva se appendea.
+- **`data/daily/YYYY-MM-DD.md`** se escribe tras cada búsqueda/evaluación. Acumula secciones por hora.
+- **`companies/<slug>/STATUS.md`** se crea al aplicar a una oferta. Contiene timeline de eventos.
+- **`data/jobs.db`** ya no se usa — la DB fue reemplazada por ficheros planos.
 
 ## Validación
 

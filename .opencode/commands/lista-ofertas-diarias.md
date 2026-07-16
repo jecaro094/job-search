@@ -1,74 +1,65 @@
 ---
-description: Lista todas las ofertas relevantes evaluadas en una fecha desde la DB, con URLs y campos clave para decidir acción
+description: Lista ofertas activas de un log diario con tabla detallada y estado de aplicación
+mode: primary
 ---
 
-Lee de la base de datos SQLite (`data/jobs.db`) las ofertas descubiertas en una fecha y las muestra en tabla, incluyendo estado de aplicación.
+Lee `data/daily/YYYY-MM-DD.md` y muestra tabla agrupada por rango de prioridad.
 
 ### Parámetros
 
-| Parámetro | Descripción | Default |
+| Parámetro | Descripción | Defecto |
 |-----------|-------------|---------|
-| `$ARGUMENTS` | Fecha opcional en formato YYYY-MM-DD. Si no se pasa, usa la fecha de hoy. | Hoy |
+| `$ARGUMENTS` | Fecha en formato YYYY-MM-DD. Si no se pasa, usa hoy | Hoy |
 
 ### Flujo
 
-1. **Determina la fecha**: si se pasó `$ARGUMENTS` válido (YYYY-MM-DD), úsalo; si no, usa la fecha de hoy.
-2. **Consulta la DB** usando `scripts/db.get_offers_by_date(fecha)`. Si no hay ofertas para esa fecha, muestra error.
-3. **Para ofertas activas**, consulta además `scripts/db.get_application_status(slug)` para saber si hay candidatura y su estado.
-4. **Filtra** solo ofertas **activas** (status = 'active' en DB):
-   - Excluye ofertas con status 'discarded', 'expired' o 'closed'
-   - Incluye:
-     - 🎯 Apply immediately (Priority ≥85)
-     - 👍 Apply (Priority ≥70)
-     - 🤔 Consider (Priority <70)
-5. **Agrupa por** verdict/prioridad.
-6. En la tabla resumen de salida, poner en la columna `Applied`: NO (-) / YES (estado descartado 🔴 / in progress 🟡 / hot 🟢)
-7. En la columna `Applied Date`, poner la fecha en que se aplicó (formato DD-MM-YYYY) si existe candidatura en DB (events con event_type='applied'). Si no se ha aplicado, poner `-`.
-10. Si existen ofertas en `### Descartadas manualmente`, añade una sección al final con la tabla de descartes.
+1. Determina la fecha: si se pasó `$ARGUMENTS` válido, úsalo; si no, usa `date +%Y-%m-%d`.
+2. Lee `data/daily/YYYY-MM-DD.md`. Si no existe, muestra error.
+3. Extrae las ofertas de las secciones `### 🚨 TOP OFERTA — Priority ≥85`, `### 👍 Priority ≥70`, `### 🤔 Priority <70`.
+4. Para cada oferta, busca en `data/jobs.csv` la fila correspondiente para obtener:
+   - **Fecha de publicación** (`posting_date` columna si existe, o date de la fila)
+   - Estado de aplicación (columna `status`: `discarded`, o `applied` si `applied` no está vacío)
+   - Si no hay fecha de publicación → mostrar `-`
+5. Cruza con `companies/<slug>/STATUS.md` para saber si existe candidatura y su estado (🟢 / 🟡 / 🔴 / ⚪).
+6. **Filtra**: excluye ofertas con `status=discarded` en CSV (ya aparecen en tabla de descartes).
 
 ### Formato de salida
 
 ```
-## 🎯 Ofertas del día — <fecha>
+## 🎯 Ofertas del día — <YYYY-MM-DD>
 
 ### 🚨 Apply immediately (Priority ≥85)
-| # | Empresa | Rol | Priority | URL | Fecha | Plataforma | Applied | Applied Date
-|---|---------|-----|:--------:|-----|:----------:|:-:|
-| 1 | Hack The Box | Senior Python Engineer | **100** | https://... | DD-MM-YYYY | Workable | - | -
+| # | Empresa | Rol | Priority | 📅 Publicación | URL | Plataforma | Applied |
+|---|---------|-----|:--------:|:--------------:|-----|:----------:|:-------:|
+| 1 | Hack The Box | Sr Python Engineer | **100** | 2026-07-08 | https://... | Workable | - |
+| 2 | Novakid School | Backend Python Dev | **98** | - | https://... | Himalayas | 🟡 |
 
-### 👍 Apply (Priority ≥70)
-| # | Empresa | Rol | Priority | URL | Fecha | Plataforma | Applied | Applied Date
-|---|---------|-----|:--------:|-----|:----------:|:-:|
-| 1 | Kinxshn | Forward Deployed Engineer | **80** | mercedes@kinxshn.com | DD-MM-YYYY | HN | 🟡 | DD-MM-YYYY
+### 👍 Apply (Priority ≥70 — <85)
+| # | Empresa | Rol | Priority | 📅 Publicación | URL | Plataforma | Applied |
+|---|---------|-----|:--------:|:--------------:|-----|:----------:|:-------:|
+| 1 | AppFollow | Sr Backend Engineer | **83** | - | https://... | Lever | - |
 
 ### 🤔 Consider (Priority <70)
-...misma estructura...
+Misma estructura que arriba.
 
-### ⏳ Pendientes de evaluar
-| Empresa | Rol | Plataforma |
-|---------|-----|:----------:|
-| Make Waves | Sr Full Stack Engineer | HN |
-
----
-
-**Resumen**: X ofertas activas | 🚨 N | 👍 N | 🤔 N | ⏳ N | 🗑️ N descartadas manualmente
-
-> Para aplicar a una oferta usa `/apply <empresa>`. Para ver detalle completo usa `/match <url>`.
-
-### 🗑️ Descartadas manualmente
-| # | Empresa | Rol | Razón descarte | Fecha descarte |
-|---|---------|-----|----------------|:--------------:|
-| 1 | Enveritas | Backend SWE - Python/Postgres | No me interesa non-profit | 2026-07-11 |
 ```
 
-### Consideraciones
+### Reglas para la columna 📅 Publicación
 
-- La DB ya garantiza dedup por hash determinista (misma empresa+rol+url → mismo ID).
-- Si una URL es un email, muéstralo como tal.
-- Si no hay URL, muestra "No disponible" o "LinkedIn (caducó)".
-- Si una oferta está ya en 🟢 Hot / 🟡 In progress, añade una nota de seguimiento.
-- Si hay ofertas descartadas (status = 'discarded'), no las muestres en la tabla principal.
-- Las ofertas descartadas con `discard_offer()` se muestran siempre en la tabla de descartes manuales al final.
-- La fecha que aparezca en las tablas resultado sería la `posting_date` de la oferta. No rellenar si no se sabe.
-- La sección `### Descartadas manualmente` solo se muestra si tiene contenido. Si no hay descartes, se omite.
-- Puedes regenerar la vista legacy desde DB con: `sqlite3 data/jobs.db ".mode csv" "SELECT * FROM offers" > data/jobs.csv`
+- ⚠️ **Siempre mostrar esta columna** en todas las tablas de ofertas.
+- Si en `data/jobs.csv` la fila tiene `date` (fecha de evaluación/discovery) que coincide con cuando se publicó la oferta, usar esa fecha.
+- Si se conoce la fecha de publicación real, mostrarla en formato `YYYY-MM-DD`.
+- Si **no se conoce** la fecha de publicación, mostrar **`-`** (un guión).
+- Esto aplica a todas las tablas: 🚨, 👍, 🤔, y descartes.
+
+### 🗑️ Descartadas manualmente (si existen)
+
+| # | Empresa | Rol | Razón descarte | Fecha descarte |
+|---|---------|-----|----------------|:--------------:|
+| 1 | Holafly | Sr Backend Engineer Python/Django | Oferta con ~4 meses de antigüedad | 2026-07-13 |
+
+### Resumen
+
+**X ofertas activas** | 🚨 N | 👍 N | 🤔 N | 🗑️ N descartadas
+
+> Para aplicar: `/apply <empresa>`. Para ver detalle: `/match <url>`.

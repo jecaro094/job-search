@@ -4,3 +4,14 @@ node_modules/
 __pycache__/
 *.pyc
 data/jobs.db
+
+## Project folders
+companies/*
+backups/*
+data/*
+projects/*
+scripts/*
+
+opencode.json
+package-lock.json
+package.json

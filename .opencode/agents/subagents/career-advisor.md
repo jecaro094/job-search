@@ -14,10 +14,9 @@ No buscas ofertas. No evalúas matches. **Analizas datos agregados** para mejora
 
 # Inputs
 
-- `data/jobs.db` (SQLite) — histórico de ofertas evaluadas, candidaturas y eventos. Leer via `scripts/db.py`:
-  - `get_offers_by_priority()` para ofertas evaluadas
-  - `get_all_applications()` para candidaturas agrupadas
-  - `get_status_summary()` para resumen agregado
+- `data/jobs.csv` — histórico de ofertas evaluadas (scoring, verdict, plataforma)
+- `data/daily/*.md` — logs diarios con evaluaciones detalladas
+- `companies/*/STATUS.md` — estado de candidaturas agrupado
 - `companies/` — notas detalladas (NOTES.md, feedback_*.md) que no están en la DB
 - `cv/cv.md` — perfil del candidato
 - Engram — decisiones pasadas, preferencias, reglas aprendidas

@@ -1,16 +1,17 @@
 ---
-description: Registra una candidatura enviada y crea seguimiento en DB + companies/
+description: Registra una candidatura enviada y crea seguimiento en companies/ + data/jobs.csv
 ---
 
 He enviado mi candidatura a: $ARGUMENTS
 
 1. Pide siempre, al menos, la url de la pagina de la oferta.
-2. **Comprobar si ya existe una candidatura en DB** usando `scripts/db.search_offers(empresa)` y `scripts/db.get_application_status(slug)`. Si existe, decir `Existe una candidatura para esta empresa, que quieres hacer?`
-    - Crear otra candidatura.
-    - Comprobar si es la misma que ya existe.
+2. **Comprobar si ya existe una candidatura** chequeando `companies/<slug>/STATUS.md`. Si existe, decir `Ya tienes una candidatura para esta empresa. ¿Quieres crear otra o actualizar la existente?`
 3. Guarda en Engram la decisión de aplicar (empresa, rol, fecha).
-4. **Persiste en DB** usando `scripts/db.upsert_application(offer_id, slug, 'in_progress')` y `scripts/db.insert_event(offer_id, 'applied', ...)`.
-5. **Crea entrada en `companies/<slug>/`** con fichero `NOTES.md` para información adicional. (NOTA: STATUS.md ya no se escribe; la DB es la fuente de verdad para estados.)
+4. **Crea `companies/<slug>/STATUS.md`** con:
+   - Estado: 🟡 In progress
+   - Timeline: fecha actual + evento "Candidatura enviada"
+   - Fuente: plataforma desde la que se aplicó
+5. **Marca en `data/jobs.csv`**: añade columna "Applied" con la fecha si la oferta está en el CSV.
 6. Pregúntame siempre si quiero añadir notas adicionales (persona de contacto, salario esperado, etc.). Dame estas opciones por terminal, de multiseleccion:
     - Añadir pregunta / respuesta de formulario.
     - Añadir información adicional.

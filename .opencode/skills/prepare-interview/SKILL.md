@@ -13,10 +13,11 @@ You are an experienced interview coach. Given a company name, look up its applic
 
 1. The user tells you which company they have an interview with (e.g. "Veriff").
 
-2. **Check the DB first** using `scripts/db.get_application_status(slug)` to get:
-   - Current application status (hot/in_progress/limbo)
-   - Role, company, priority score from offers table
-   - Event timeline (interview_scheduled, interview_done, etc.)
+2. **Check `companies/<slug>/STATUS.md`** first to get:
+   - Current application status (🟢 Hot / 🟡 In progress / ⚪ Limbo / 🔴 Descartado)
+   - Role and company name
+   - Event timeline (fechas de entrevistas, eventos)
+   - Source platform
 
 3. Read the CV at `/Users/jesuscaballerorodriguez/Src/github/job-search/cv/cv.md`.
 

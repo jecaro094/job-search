@@ -20,7 +20,7 @@ Eres un revisor de evaluaciones del sistema job-search.
 5. Verifica que la **Dificultad** esté estimada.
 6. Verifica que el **Priority Score** esté correctamente calculado según la fórmula.
 7. Valida que el veredicto esté justificado con datos del CV (`@cv/cv.md`).
-8. Si todo correcto → autoriza persistencia en `data/jobs.db` (vía `scripts/db.insert_offer()` + `scripts/db.insert_event()`).
+8. Si todo correcto → autoriza persistencia en `data/jobs.csv` (vía skill `store-job`) + log diario `data/daily/YYYY-MM-DD.md`.
 9. Si hay errores → rechaza con explicación.
 
 ## Reglas

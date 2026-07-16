@@ -1,60 +1,57 @@
 ---
-description: Lista todas las ofertas activas de la DB, consolidadas sin importar fecha de descubrimiento
+description: Lista todas las ofertas activas de todos los logs diarios consolidados
+mode: primary
 ---
 
-Consulta directamente la base de datos SQLite (`data/jobs.db`) para obtener todas las ofertas activas y muestra tabla consolidada con estado de aplicación. No depende de ficheros legacy.
+Escanea **todos** los archivos `data/daily/YYYY-MM-DD.md` y consolida las ofertas activas en una sola tabla agrupada por prioridad.
 
 ### Flujo
 
-1. **Consulta la DB** usando `scripts/db.get_all_active_offers()` para obtener todas las ofertas con status 'active' o 'applied'.
-2. **Para cada oferta**, consulta `scripts/db.get_application_status(slug)` para saber si hay candidatura y su estado actual.
-3. **Consulta** `scripts/db.get_offers_by_priority()` para clasificar por rango.
-4. **Agrupa por** verdict/prioridad (🚨≥85, 👍≥70, 🤔<70).
-5. **Consolida descartes manuales**: consulta ofertas con status 'discarded' y, para cada discovery_date distinta, agrupa en tabla de descartes.
-
+1. Busca todos los archivos `data/daily/*.md`.
+2. Para cada archivo, extrae las ofertas de las secciones de prioridad.
+3. Para cada oferta, busca en `data/jobs.csv` la fila correspondiente para obtener:
+   - **Fecha de publicación** — si se conoce, mostrarla. Si no, `-`.
+   - Estado actual (discarded, o si `applied` no vacío → candidatura registrada)
+4. Cruza con `companies/<slug>/STATUS.md` para estado de candidatura (🟢 / 🟡 / 🔴 / ⚪).
+5. **Excluye** ofertas con `status=discarded` en CSV (van a tabla de descartes).
+6. **Dedup**: misma empresa+rol → mostrar solo la más reciente.
 
 ### Formato de salida
 
 ```
-## 🎯 Ofertas totales
+## 🎯 Ofertas totales (consolidadas)
 
 ### 🚨 Apply immediately (Priority ≥85)
-| # | Fecha | Empresa | Rol | Priority | URL | Fecha Oferta | Plataforma | Applied | Applied Date
-|---|---------|-----|:--------:|-----|:----------:|:-:|
-| 1 | DD-MM-YYY | Hack The Box | Senior Python Engineer | **100** | https://... | DD-MM-YYYY | Workable | - | -
+| # | 📅 Discovery | Empresa | Rol | Priority | 📅 Publicación | URL | Plataforma | Applied |
+|---|:-----------:|---------|-----|:--------:|:--------------:|-----|:----------:|:-------:|
+| 1 | 2026-07-13 | VOYGR | Full-Stack Engineer | **100** | 2026-07-13 | https://... | YC | - |
+| 2 | 2026-07-11 | Kalepa | Sr Backend Engineer | **99** | 2026-07-11 | https://... | Himalayas | - |
 
-### 👍 Apply (Priority ≥70)
-| # | Fecha | Empresa | Rol | Priority | URL | Fecha Oferta | Plataforma | Applied | Applied Date
-|---|---------|-----|:--------:|-----|:----------:|:-:|
-| 1 | DD-MM-YYY | Kinxshn | Forward Deployed Engineer | **80** | mercedes@kinxshn.com | DD-MM-YYYY | HN | 🟡 | DD-MM-YYYY
+### 👍 Apply (Priority ≥70 — <85)
+| # | 📅 Discovery | Empresa | Rol | Priority | 📅 Publicación | URL | Plataforma | Applied |
+|---|:-----------:|---------|-----|:--------:|:--------------:|-----|:----------:|:-------:|
+| 1 | 2026-07-13 | AppFollow | Sr Backend Engineer | **83** | - | https://... | Lever | - |
 
 ### 🤔 Consider (Priority <70)
-...misma estructura...
+Misma estructura.
 
-### ⏳ Pendientes de evaluar
-| Fecha | Empresa | Rol | Plataforma |
-|---------|-----|:----------:|
-| DD-MM-YYY | Make Waves | Sr Full Stack Engineer | HN |
-
----
-
-**Resumen**: X ofertas activas | 🚨 N | 👍 N | 🤔 N | ⏳ N | 🗑️ N descartadas manualmente
-
-> Para aplicar a una oferta usa `/apply <empresa>`. Para ver detalle completo usa `/match <url>`.
-
-### 🗑️ Descartadas manualmente (todos los logs)
-| # | Log | Empresa | Rol | Razón descarte | Fecha descarte |
-|---|:---:|---------|-----|----------------|:--------------:|
-| 1 | 2026-07-11 | Enveritas | Backend SWE - Python/Postgres | No me interesa non-profit | 2026-07-11 |
 ```
 
-### Consideraciones
+### Reglas para la columna 📅 Publicación
 
-- La DB garantiza dedup automático (hash determinista). Cada empresa+rol+url aparece una sola vez.
-- Si una URL es un email, muéstralo como tal.
-- Si no hay URL, muestra "No disponible" o "LinkedIn (caducó)".
-- Si una oferta está ya en 🟢 Hot / 🟡 In progress, añade una nota de seguimiento.
-- Las ofertas descartadas solo aparecen en la tabla de descartes, nunca en la principal.
-- La sección `### Descartadas manualmente (todos los logs)` solo se muestra si tiene contenido. Si no hay descartes, se omite.
-- La `fecha de la oferta` es el `posting_date` de la DB. No rellenar si es NULL.
-- La `fecha` de descubrimiento es el `discovery_date` de la DB.
+- ⚠️ **Siempre mostrar esta columna** en todas las tablas de ofertas.
+- Usar la fecha de publicación real si está disponible en CSV o en el log diario.
+- Si **no se conoce**, mostrar **`-`**.
+- Aplica a todas las tablas (🚨, 👍, 🤔, descartes).
+
+### 🗑️ Descartadas manualmente (todos los logs)
+
+| # | 📅 Log | Empresa | Rol | Razón descarte | Fecha descarte |
+|---|:-----:|---------|-----|----------------|:--------------:|
+| 1 | 2026-07-13 | Holafly | Sr Backend Engineer Python/Django | Oferta con ~4 meses de antigüedad | 2026-07-13 |
+
+### Resumen
+
+**X ofertas activas totales** | 🚨 N | 👍 N | 🤔 N | 🗑️ N descartadas
+
+> Para aplicar: `/apply <empresa>`. Para ver detalle: `/match <url>`.

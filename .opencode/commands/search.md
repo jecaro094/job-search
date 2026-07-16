@@ -14,13 +14,13 @@ Ejecuta la búsqueda proactiva multi-plataforma definida en `specs/features/job-
    - Empresas objetivo
 2. **Pregunta**: "¿Quieres buscar también en LinkedIn? (tarda 3-5 minutos)" [s/N].
 
-### Evaluación y persistencia (en SQLite)
+### Evaluación y persistencia (en ficheros)
 3. Unifica ofertas de todos los canales ejecutados.
-4. Cross-check: si empresa está 🔴 Descartado en DB → preguntar antes de evaluar.
+4. Cross-check: si empresa está 🔴 en `companies/<slug>/STATUS.md` → preguntar antes de evaluar.
 5. Carga la skill `job-matcher`. Evalúa cada oferta con scoring dual.
 6. Muestra TOP ofertas agrupadas por rango (🚨≥85, 👍≥70, 🤔<70).
-7. **Persiste en SQLite** usando:
-   - `scripts/db.insert_offer()` para cada oferta evaluada
-   - `scripts/db.insert_event()` para el timeline de evaluación
+7. **Persiste en ficheros**:
+   - Appendea a `data/jobs.csv` vía skill `store-job`
+   - Escribe log diario en `data/daily/YYYY-MM-DD.md`
    - Raw JSON opcional en `data/search/YYYY-MM-DD/` (solo para debug)
 8. Resumen final: canales buscados, ofertas evaluadas, distribución por rango.

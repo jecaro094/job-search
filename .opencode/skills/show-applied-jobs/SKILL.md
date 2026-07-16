@@ -1,58 +1,49 @@
 ---
 name: show-applied-jobs
-description: List all active candidaturas from data/jobs.db (SQLite). No file-based reading needed.
+description: List all active candidaturas reading from companies/*/STATUS.md files.
 ---
 
 # Skill: show-applied-jobs
 
 # Purpose
 
-Display all active candidaturas reading from the SQLite database (`data/jobs.db`). Uses `scripts/db.py` as the data access layer.
+Display all active candidaturas reading from `companies/*/STATUS.md` files. Uses `data/jobs.csv` as secondary source for offer info.
 
-**Principle**: DB is the source of truth. Engram and files are never used as primary data source.
+**Principle**: `companies/*/STATUS.md` is the source of truth for application status. `data/jobs.csv` provides additional scoring info.
 
 ---
 
 # Process
 
-1. **Query the database** using `scripts/db.py`:
-   ```python
-   from scripts.db import get_all_applications, get_status_summary
-   
-   # Todas las candidaturas
-   apps = get_all_applications()
-   
-   # O filtradas por estado
-   hot = get_all_applications(status_filter="hot")
-   in_progress = get_all_applications(status_filter="in_progress")
-   limbo = get_all_applications(status_filter="limbo")
-   descartado = get_all_applications(status_filter="descartado")
-   
-   # Resumen
-   summary = get_status_summary()
-   ```
+1. **Iterate `companies/*/STATUS.md`** files and parse:
+   - Status line (`🟢 Hot`, `🟡 In progress`, `⚪ Limbo`, `🔴 Descartado`)
+   - Last event in Timeline
+   - Company name from the directory slug
+   - Source platform line if available
 
-2. **Classify by status** and group:
-   - 🟢 **Hot** — status "hot"
-   - 🟡 **In progress** — status "in_progress"
-   - ⚪ **En el limbo** — status "limbo"
-   - 🔴 **Descartado** — status "descartado"
+2. **Cross-reference with `data/jobs.csv`** (if it exists) to get Priority Score where available.
 
-3. **Present the results** with company name, role, source platform, and latest event.
+3. **Classify by status** and group:
+   - 🟢 **Hot**
+   - 🟡 **In progress**
+   - ⚪ **En el limbo**
+   - 🔴 **Descartado**
 
-4. **If no applications found**, respond:
+4. **Present the results** with company name, role, source platform, and latest event.
+
+5. **If no candidaturas found**, respond:
    "No hay candidaturas registradas. Ejecuta `/apply <empresa>` para añadir la primera."
 
 ---
 
 # Rules
 
-- **Never use Engram** as data source.
-- **Never read companies/ directory** for listing purposes (only for NOTES.md or detailed views).
+- **Never read from SQLite** (la DB está deprecada).
 - Display in Spanish since the user communicates in Spanish.
 - Group by status, ordered by priority: Hot → In progress → En el limbo → Descartado.
 - Show 🟢/🟡/⚪/🔴 emoji before each company name.
 - Show the latest event if available.
+- For priority scores, parse from `data/jobs.csv` by company name.
 
 ---
 
@@ -63,12 +54,12 @@ Display all active candidaturas reading from the SQLite database (`data/jobs.db`
 
 ### 🟢 Hot
 | # | Empresa | Rol | Origen | Prioridad | Último evento |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | 1 | Veriff | Senior BE — Verification Platform | LinkedIn | 93 | Stage 2 ✅ |
 
 ### 🟡 In progress
 | # | Empresa | Rol | Origen | Prioridad | Último evento |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | 1 | Enveritas | Backend SWE — Python/Postgres | Greenhouse | 95 | applied |
 
 ### ⚪ En el limbo
@@ -80,4 +71,3 @@ Display all active candidaturas reading from the SQLite database (`data/jobs.db`
 ---
 **Total activas**: X | **Descartadas**: Y
 ```
-

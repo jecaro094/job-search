@@ -7,7 +7,7 @@ description: Search and retrieve job listings from multiple platforms (Himalayas
 
 You are a multi-platform job search assistant.
 
-Your objective is to find relevant remote job listings across **multiple platforms** beyond LinkedIn, using only built-in tools (`websearch`, `webfetch`). No MCP dependencies, no API keys, no paid services.
+Your objective is to find relevant remote job listings across **multiple platforms** (Himalayas, LinkedIn, HN, RemoteOK, etc.), using only built-in tools (`websearch`, `webfetch`). No MCP dependencies, no API keys, no paid services.
 
 This skill **discovers** job listings and returns them in a structured format ready for downstream evaluation (job-matcher → reviewer → store-job).
 
@@ -32,6 +32,7 @@ evaluar (job-matcher con dual scoring)
 | **We Work Remotely** | `websearch` + `webfetch` | HTML → extracción manual | Gratis |
 | **ATS (Greenhouse, Lever, Workable, Ashby, Recruitee)** | `websearch` + `webfetch` (búsqueda directa) | Variable, captura ofertas no indexadas en agregadores | Gratis |
 | **HN "Who is hiring"** | `websearch` hilo mensual + parseo de comentarios | Ofertas directas 100% activas | Gratis |
+| **LinkedIn** | `websearch` con `site:linkedin.com/jobs/view` + `webfetch` individual | Descripciones detalladas, ~10-15% del total de ofertas | Gratis |
 | **Wellfound / AngelList** | Solo `websearch` (fetch directo → 403). Búsqueda alternativa | Parcial | Gratis |
 | **YC Work at a Startup** | `websearch` directo | Startups con funding, remote-first | Gratis |
 | **Empresas objetivo** | `websearch` directo al ATS de cada empresa | Alta calidad, targeting preciso | Gratis |
@@ -123,6 +124,34 @@ Run parallel `websearch` queries:
 | `site:remoteok.com "backend" remote python` | RemoteOK backend |
 | `site:remoteok.com "data engineer" remote` | RemoteOK data |
 | `site:remoteok.com "api" remote developer` | RemoteOK API |
+
+### Step 2B — 🆕 LinkedIn (via web search)
+
+LinkedIn **no expone API pública de búsqueda de empleo**, pero sus ofertas están indexadas en buscadores. Usar `websearch` con el operador `site:linkedin.com/jobs/view` para descubrir ofertas recientes, exactamente igual que con RemoteOK, WWR, y el resto de canales.
+
+Ejecutar en paralelo las siguientes queries:
+
+| Query | Rationale |
+|-------|-----------|
+| `site:linkedin.com/jobs/view "Python" "backend" "remote" Spain` | Rol principal, ubicación España |
+| `site:linkedin.com/jobs/view "Python" "FastAPI" "remote" Europe` | Stack principal (FastAPI) Europa |
+| `site:linkedin.com/jobs/view "senior" "backend" "Python" "remote"` | Senior Backend Python genérico |
+| `site:linkedin.com/jobs/view "data engineer" "Python" "remote"` | Data Engineering remoto |
+| `site:linkedin.com/jobs/view "backend" "Python" "Kafka" OR "RabbitMQ" "remote"` | Backend + mensajería (diferenciador) |
+| `site:linkedin.com/jobs/view "Senior Python" "remote" Europe` | Senior Python sin "backend" en el título (captura casos como BMAT) |
+| `site:linkedin.com/jobs/view "Python" "Django" "remote" Europe` | Stack Django (stack real del candidato, complementa FastAPI) |
+| `site:linkedin.com/jobs/view "distributed systems" "Python" "remote"` | Nivel Staff/Principal — diferenciador del candidato |
+
+Para cada resultado:
+
+1. Extraer la URL individual (`linkedin.com/jobs/view/XXXXX`).
+2. Usar `webfetch` para obtener la descripción completa (LinkedIn renderiza bien en modo texto).
+3. Extraer: título, empresa, ubicación, fecha de publicación, descripción, stack.
+4. **Estimar recencia**: LinkedIn suele mostrar "hace X horas/días". Si >14 días conocido → descartar. Si no tiene fecha → -15 en Technical Fit.
+5. Pasar al pipeline estándar: hard filters → job-matcher → store-job.
+
+> 💡 Las ofertas de LinkedIn suelen tener descripciones más detalladas que agregadores tipo RemoteOK. El salario suele estar oculto (red flag -4).
+> ⚠️ Web search solo captura ~10-15% de las ofertas reales de LinkedIn (las indexadas por buscadores). Es un canal complementario, no sustitutivo.
 
 ### Step 3 — We Work Remotely (tertiary source)
 
@@ -246,17 +275,18 @@ site:jobs.ashbyhq.com GITLAB python
 | **Fintech** | Stripe, Revolut, Monzo, N26, Wise, Plaid, Checkout.com, Mollie, SumUp |
 | **Data/AI** | Dataiku, Hugging Face, Weights & Biases, Modal, Hex, Evidence |
 | **Infra/DevTools** | GitLab, Elastic, Grafana, Datadog, Sentry, Netlify, Vercel, Supabase |
-| **SaaS** | Airtable, Notion, Linear, Pitch, Miro, Loom, Fivetran, dbt Labs |
+| **SaaS** | Airtable, Notion, Linear, Pitch, Miro, Loom, Fivetran, dbt Labs, **Hack The Box** ⭐ |
 | **Healthcare** | Fever, Kry, Doctolib, Alto Pharmacy, Ro, Zocdoc |
 | **Marketplaces** | Glovo, Cabify, Wallapop, TravelPerk, Jobandtalent, Stuart |
 | **Europe/Spain** | Cabify, Glovo, Wallapop, TravelPerk, Jobandtalent, Devo, Carto, Typeform |
 | **Open Source** | GitLab, Elastic, Grafana, Supabase, PostHog, Sourcegraph, Plane |
+| **Sevilla/Andalucía** ⭐ | **Cabify**, **Holded**, **Factorial HR**, **Domestika**, **Kratos Growth**, **Typeform**, **YesLawyer**, **KeepITup**, **F11** |
 
 Para cada empresa de la lista:
 1. Buscar en su ATS conocido (Greenhouse, Lever, Ashby, Workable, Recruitee).
 2. Si no se encuentra ATS conocido, buscar: `<company> careers python backend remote`.
-3. **Cross-check en DB**: con `scripts/db.search_offers(company)`. Si existe oferta con status 'discarded' → saltar. Preguntar al usuario si quiere reconsiderar.
-4. Si ya existe candidatura en DB (`get_application_status(slug)` con status 'in_progress' o 'hot') → verificar si hay nuevas ofertas (no la misma).
+3. **Cross-check en companies/**: si existe `companies/<slug>/STATUS.md` con estado `🔴 Descartado` → saltar. Preguntar al usuario si quiere reconsiderar.
+4. Si ya existe candidatura en `companies/<slug>/STATUS.md` con estado `🟡 In progress` o `🟢 Hot` → verificar si hay nuevas ofertas (no la misma).
 
 > 🎯 **Potencial**: ~15-20 empresas objetivo pueden descubrirse en ~5 minutos de búsqueda. Este canal es el que más se acerca a cómo encuentras ofertas manualmente (navegando empresas que te interesan).
 
@@ -281,14 +311,14 @@ site:indeed.com "python" "backend" remote -hybrid -onsite
    - ✅ Python mencionado
    - ✅ Ubicación compatible (ver ⚠️ Filtro de ubicación CRÍTICO)
 5. **Pre-scan green/red flags**: si hay 2+ red flags graves → "Low Priority". Si 3+ green flags → "High Potential".
-6. **Cross-check con descartadas en DB**: antes de pasar a job-matcher, para cada empresa que pasó filtros:
+6. **Cross-check con descartadas en companies/**: antes de pasar a job-matcher, para cada empresa que pasó filtros:
     1. Normaliza el nombre a slug.
-    2. Busca en DB con `scripts/db.search_offers(slug)`. Si existe una oferta con status **'discarded'** → **detén la evaluación** de esa oferta y pregunta: "Esta empresa ya está en tu lista de descartadas. ¿Quieres reconsiderarla o la saltamos?"
+    2. Busca `companies/<slug>/STATUS.md`. Si existe y contiene `🔴 Descartado` → **detén la evaluación** de esa oferta y pregunta: "Esta empresa ya está en tu lista de descartadas. ¿Quieres reconsiderarla o la saltamos?"
     3. Solo si el usuario confirma, continúa con la evaluación.
 7. For each candidate that passes (filtros + cross-check), load `job-matcher` skill for evaluation (dual scoring).
 8. Pass the `source_platforms` list to job-matcher so it can apply the multi-platform bonus.
 9. For each evaluation, delegate to `@reviewer` subagent for validation.
-10. **Guarda en DB**: el orquestador persiste usando `scripts/db.insert_offer()` y `scripts/db.insert_event()`. Los ficheros legacy (`data/daily/`, `data/jobs.csv`) ya no se escriben.
+10. **Guarda en ficheros**: el orquestador persiste usando el skill `store-job` (appendea a `data/jobs.csv`) y escribe en `data/daily/YYYY-MM-DD.md` (log diario). Las candidaturas se registran creando `companies/<slug>/STATUS.md`.
 11. Persist valid evaluations with `store-job` skill.
 
 ### Step 11 — Report (con énfasis de ofertas top)

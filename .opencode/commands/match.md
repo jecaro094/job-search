@@ -1,12 +1,13 @@
 ---
-description: Evalúa una oferta específica (URL o descripción) contra el perfil y la CV
+description: Evaluación individual de una oferta desde URL o descripción
 ---
 
-Recibe una URL o descripción de LinkedIn y:
+Evalúa una oferta individual: `/match <url>` o `/match <descripción extensa>`.
 
-1. Pasa la oferta al subagente @job-analyst para extracción y filtrado (usa `webfetch` o la descripción directa).
-2. Si pasa filtros, carga la skill `job-matcher` para evaluación técnica.
-3. Si pasa filtros, carga la skill `job-matcher` para evaluación técnica.
-4. Pasa el resultado a @reviewer para validación.
-5. Si autorizado, persiste en `data/jobs.db` vía skill `store-job` (que usa `scripts/db.insert_offer()`).
-6. Dame un veredicto claro: **fit** o **mismatch** y los 3 motivos principales.
+### Flujo
+1. Obtén la oferta (via `webfetch` si es URL, o usa el texto si es descripción).
+2. Carga el subagente `@job-analyst` para extraer datos estructurados.
+3. Carga la skill `job-matcher`.
+4. Ejecuta evaluación dual (Technical Fit + Career Fit → Priority Score).
+5. Si autorizado, persiste en `data/jobs.csv` vía skill `store-job` + escribe en `data/daily/YYYY-MM-DD.md`.
+6. Muestra resultado completo como en `/search`.

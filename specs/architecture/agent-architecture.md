@@ -1,4 +1,6 @@
-# Arquitectura del agente job-search (v4)
+# Arquitectura del agente job-search (v5 — file-based)
+
+> **Decisión de arquitectura (2026-07-11)**: El sistema abandonó SQLite (`data/jobs.db`) como fuente de verdad y opera exclusivamente sobre **ficheros planos** (CSV + Markdown). Motivos: (1) trazabilidad vía git — cada cambio es un diff visible, (2) cero infraestructura — no requiere Python runtime para consultas básicas, (3) inspección directa — cualquier fichero se lee con `cat` o `grep` sin herramientas adicionales. Los artefactos de la migración a SQLite (`data/jobs.db`, `scripts/db.py`, `specs/architecture/persistence-data.md`) se mantienen como histórico pero **no se utilizan** en el flujo activo. Ver `AGENTS.md` → *Persistencia (ficheros)* para la documentación operativa.
 
 ## 1. Diagrama de componentes
 
@@ -128,26 +130,26 @@ Descubrimiento → Pre-filter → Evaluación Dual → Ranking → Aplicación �
       │              │              │             │           │           │          │
       ▼              ▼              ▼             ▼           ▼           ▼          ▼
     /daily        5 cortes       job-matcher               /apply      /cambiar-candidatura
-    /search       binarios      (dual score)             (DB insert)   (DB update)   🔴❌⚪
-    /match <url>                                          + NOTES.md  + Timeline(DB)
+    /search       binarios      (dual score)             (STATUS.md)   (STATUS.md)   🔴❌⚪
+    /match <url>                                          + NOTES.md  + Timeline
 ```
 
 | Fase | Acción | Comando | Persistencia |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | **Descubrimiento** | Buscar ofertas en multi-plataforma + LinkedIn (optativo) | `/daily`, `/search` | `data/search/YYYY-MM-DD/HH-MM-{channel}.json` (raw, opcional) |
-| **Pre-filter** | 5 cortes binarios (remoto, rol, full-time, Python, ubicación) | Automático | DB (events) |
-| **Evaluación** | Scoring dual (Tech Fit + Career Fit → Priority) | `/match <url>` | `data/jobs.db` (offers + events) |
-| **Ranking** | Ordenación por Priority Score | Automático | `data/jobs.db` (query) |
-| **Aplicación** | Registrar que has aplicado + guardar respuestas | `/apply <empresa>` | `data/jobs.db` (applications + events) + `companies/<slug>/NOTES.md` |
-| **Progreso** | Avanzar etapas del proceso | Natural / `/cambiar-candidatura` | `data/jobs.db` (applications + events) |
-| **Resolución** | Cambiar a Hot/Descartado/Limbo | Natural / `/cambiar-candidatura` | `data/jobs.db` + `companies/<slug>/` (feedback) |
+| **Pre-filter** | 5 cortes binarios (remoto, rol, full-time, Python, ubicación) | Automático | No aplica (solo en memoria) |
+| **Evaluación** | Scoring dual (Tech Fit + Career Fit → Priority) | `/match <url>` | `data/jobs.csv` (append row) + `data/daily/YYYY-MM-DD.md` (log section) |
+| **Ranking** | Ordenación por Priority Score | Automático | No aplica (ordenación en memoria) |
+| **Aplicación** | Registrar que has aplicado + guardar respuestas | `/apply <empresa>` | `companies/<slug>/STATUS.md` (crear con timeline) + `data/jobs.csv` (actualizar estado) |
+| **Progreso** | Avanzar etapas del proceso | Natural / `/cambiar-candidatura` | `companies/<slug>/STATUS.md` (actualizar timeline + estado) |
+| **Resolución** | Cambiar a Hot/Descartado/Limbo | Natural / `/cambiar-candidatura` | `companies/<slug>/STATUS.md` + opcional `companies/<slug>/feedback_*.md` |
 
 ## 5. Comandos del sistema
 
 | Comando | Función | Spec |
 |---|---|---|
 | `/search` | Búsqueda multi-plataforma automática (Himalayas, HN, RemoteOK, WWR, ATS) + evaluación + log | `specs/features/job-search.md` |
-| `/daily` | Pipeline completo: diagnóstico companies + búsqueda multi-plataforma + LinkedIn opcional + evaluación + persistencia | `.opencode/commands/daily.md` |
+| `/daily` | Pipeline completo: diagnóstico companies + búsqueda multi-plataforma (incluye LinkedIn vía web search) + evaluación + persistencia | `.opencode/commands/daily.md` |
 | `/match <url>` | Evaluación individual de una oferta | `specs/features/job-matching.md` |
 | `/apply <empresa>` | Registrar candidatura | — |
 | `/company <empresa>` | Consultar estado | — |
@@ -173,36 +175,42 @@ Descubrimiento → Pre-filter → Evaluación Dual → Ranking → Aplicación �
 1. webfetch → hnhiring.com (parsea ~400 comments del thread mensual)
 2. LLM filtra ofertas que mencionan Python + backend + remote + Europe/EMEA
 3. Pre-filter + job-matcher para cada oferta candidata
-4. Persistencia 3 capas
+4. Persistencia en 3 capas de ficheros: `data/jobs.csv` + `data/daily/YYYY-MM-DD.md` + `companies/<slug>/STATUS.md`
 ```
 
-## 7. Persistencia (SQLite como fuente de verdad única)
+## 7. Persistencia (ficheros planos como fuente de verdad)
 
-Desde julio 2026, el sistema migró a **SQLite** (`data/jobs.db`) como almacenamiento único estructurado.
+El sistema persiste en **tres capas de ficheros**, sin base de datos externa. Esta decisión es deliberada: los ficheros planos son legibles, versionables con git y no requieren infraestructura.
 
-| Almacenamiento | Propósito | Estado |
-|---|---|---|
-| **`data/jobs.db`** (SQLite) | Ofertas, evaluaciones, candidaturas, eventos | ✅ Fuente de verdad única |
-| `data/search/YYYY-MM-DD/` | Raw JSON por canal (debug) | Opcional |
-| `companies/<slug>/NOTES.md` | Notas de entrevista, respuestas de formularios | ✅ Información no estructurada |
-| `companies/<slug>/feedback_*.md` | Feedback post-entrevista | ✅ Información no estructurada |
-| `data/jobs.csv` | Regenerable desde DB | ❌ Legacy |
-| `data/daily/*.md` | Regenerable desde DB | ❌ Legacy |
-| `companies/*/STATUS.md` | Regenerable desde DB | ❌ Legacy |
+| Capa | Formato | Propósito | Estado |
+|------|---------|-----------|--------|
+| **`data/jobs.csv`** | CSV | Tracker maestro de todas las ofertas evaluadas con scores, veredicto y plataforma | ✅ Activo |
+| **`data/daily/YYYY-MM-DD.md`** | Markdown | Log diario humano-legible con ofertas, evaluaciones, decisiones y métricas por búsqueda | ✅ Activo |
+| **`companies/<slug>/STATUS.md`** | Markdown | Estado y timeline de cada candidatura individual | ✅ Activo |
+| `companies/<slug>/NOTES.md` | Markdown | Notas de entrevista, respuestas de formularios, Q&A | ✅ Información no estructurada |
+| `companies/<slug>/feedback_*.md` | Markdown | Feedback post-entrevista por stage | ✅ Información no estructurada |
+| `data/search/YYYY-MM-DD/` | JSON | Raw results por canal de búsqueda (debug) | Opcional |
+| `data/jobs.db` | SQLite | Migración cancelada — *no se usa*. `data/jobs.db` fue un intento de migración a SQLite que quedó en desuso; el sistema actual opera exclusivamente sobre ficheros planos. | ❌ No usado |
 
-**DB Schema**: 5 tablas (`offers`, `events`, `applications`, `search_rounds`, `learnings`) + vistas.  
-Ver `specs/architecture/persistence-data.md` para detalle completo.
+### Reglas de persistencia
+
+1. **`data/jobs.csv`** — Tracker maestro de ofertas. Cada evaluación nueva se appendea como fila. Contiene: empresa, rol, URL, Technical Fit, Career Fit, Priority Score, green/red flags, difficulty, verdict, summary, source_platforms.
+2. **`data/daily/YYYY-MM-DD.md`** — Se escribe tras cada búsqueda/evaluación. Acumula secciones por hora. Contiene detalle completo de cada evaluación (tablas de factores, flags, fórmula, veredicto).
+3. **`companies/<slug>/STATUS.md`** — Se crea al aplicar a una oferta. Contiene timeline de eventos (aplicación, entrevistas, cambios de estado).
+4. **Nunca escribir en `data/jobs.db`** — ese fichero es legacy de una migración abortada.
+
+Ver `AGENTS.md` → sección *Persistencia (ficheros)* para la documentación operativa oficial.
 
 ## 8. Fuentes de verdad
 
 | Dato | Fuente | Notas |
 |---|---|---|
-| Evaluaciones técnicas | `data/jobs.db` → `offers` table | Scoring dual completo |
-| Estado de candidatura | `data/jobs.db` → `applications` + `events` | Status + timeline |
-| Detalle de empresa | `data/jobs.db` + `companies/<slug>/NOTES.md` | Rol, stack, scoring, notas |
+| Evaluaciones técnicas | `data/jobs.csv` | CSV con Technical Fit, Career Fit, Priority, flags y veredicto |
+| Estado de candidatura | `companies/<slug>/STATUS.md` | Markdown con estado actual + timeline de eventos |
+| Detalle de empresa | `data/daily/*.md` + `companies/<slug>/NOTES.md` | Evaluaciones completas en daily logs; notas de entrevista en companies/ |
 | Respuestas de formularios | `companies/<slug>/NOTES.md` | Q&A de aplicaciones, respuestas preparadas |
 | Feedback por etapa | `companies/<slug>/feedback_*.md` | Notas post-entrevista por stage |
-| Logs de búsqueda | `data/jobs.db` → `search_rounds` + `events` | Traza de cada pipeline ejecutado |
+| Logs de búsqueda | `data/daily/*.md` | Log diario con métricas por canal y decisiones |
 | Resultados brutos | `data/search/YYYY-MM-DD/` (opcional) | Raw JSON por canal de búsqueda |
 | CV del candidato | `cv/cv.md` | Source of truth del perfil técnico |
 | Memoria entre sesiones | Engram | Solo contexto, nunca fuente primaria de datos |
@@ -237,7 +245,7 @@ Estas referencias se pasan a subagentes y skills cuando la tarea lo requiere.
 2. ORQUESTADOR: Envía prompt con instrucciones explícitas y formato de salida
 3. SUBAGENTE: Ejecuta análisis y devuelve resultado estructurado
 4. ORQUESTADOR: Valida que el resultado sea utilizable
-5. ORQUESTADOR: Persiste si procede (en DB via insert_offer/upsert_application, y NOTES.md si aplica)
+5. ORQUESTADOR: Persiste si procede (en ficheros: append a `data/jobs.csv`, escribe `data/daily/YYYY-MM-DD.md`, crea/actualiza `companies/<slug>/STATUS.md` si aplica)
 6. ORQUESTADOR: Guarda en Engram (mem_save) si es decisión relevante
 7. ORQUESTADOR: Informa al usuario
 ```
@@ -254,7 +262,7 @@ Estas referencias se pasan a subagentes y skills cuando la tarea lo requiere.
         green/red flags, difficulty, skill gaps, strengths
 6. ─→ ORQUESTADOR invoca @reviewer con la evaluación completa + oferta original
 7.   ─→ @reviewer devuelve: Aprobado/Rechazado + razón + sugerencias
-8. ─→ ORQUESTADOR persiste en DB (insert_offer + insert_event + upsert_application si aplica)
+8. ─→ ORQUESTADOR persiste: appendea a `data/jobs.csv` (via `store-job`), escribe sección en `data/daily/YYYY-MM-DD.md`, y si aplica crea `companies/<slug>/STATUS.md`
 9. ─→ ORQUESTADOR mem_save y reporta al usuario
 ```
 
@@ -279,7 +287,7 @@ Estas referencias se pasan a subagentes y skills cuando la tarea lo requiere.
 
 ## 12. Validación y consistencia
 
-- `data/jobs.db` se valida mediante consultas SQL desde el orquestador (get_status_summary, etc.)
-- El script legacy `scripts/validate-companies.sh` ya no es necesario para el flujo principal (STATUS.md ya no se escribe)
+- Ejecutar `bash scripts/validate-companies.sh` para verificar que todos los `companies/<slug>/STATUS.md` son consistentes (sin estados huérfanos)
+- Consistencia cross-file: cada oferta en `data/jobs.csv` debe tener una entrada correspondiente en algún `data/daily/*.md`
 - Engram `mem_doctor` para diagnosticar salud de la memoria
-- Los ficheros legacy (`companies/*/STATUS.md`, `data/jobs.csv`) se pueden regenerar desde la DB si es necesario
+- Los ficheros `data/jobs.db`, `scripts/db.py` y `specs/architecture/persistence-data.md` son legacy de una migración a SQLite que no se completó — no se utilizan en el flujo activo

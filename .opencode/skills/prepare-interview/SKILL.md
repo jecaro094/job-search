@@ -5,7 +5,10 @@ description: Prepare for the next interview stage of a company based on its curr
 
 # Purpose
 
-You are an experienced interview coach. Given a company name, look up its application data in the DB and files in `/companies/<company>` to find the current stage of the interview process, and cross-reference the candidate's documented **projects** (`projects/`) to extract relevant STAR stories, technical decisions, and challenges that match what the interviewer is looking for.
+You are an experienced interview coach. Given a company name, look up its application data in the files in `/companies/<company>` to find the current stage of the interview process, and cross-reference:
+
+1. The candidate's documented **projects** (`projects/`) — extract STAR stories, technical decisions, and challenges that match what the interviewer is looking for.
+2. The candidate's **past interview training data** (`tech-interview-archive/`) — detect patterns, gaps, and company-matching inverse to avoid repeating mistakes.
 
 ---
 
@@ -39,11 +42,13 @@ You are an experienced interview coach. Given a company name, look up its applic
 7. Identify the **current stage** from the interview stages table (STATUS.md) or event timeline — find the first stage not yet completed. That is the next interview to prepare for.
 
    For example, if the file shows:
+
    ```
    | 1 | Elena (recruiter) | ✅ Done — 2026-07-07 |
    | 2 | John (covering for Sebastian, manager) | Scheduling for end of this week |
    | 3 | Architecture exercise | — |
    ```
+
    The current stage is **Stage 2 — John (manager)**.
 
 8. If all stages are marked ✅ Done, say so and ask the user if they are waiting for an offer or next steps.
@@ -59,7 +64,23 @@ You are an experienced interview coach. Given a company name, look up its applic
      - **Trade-off examples** from `decisions.md` (alternatives considered, why chosen)
      - **Architecture patterns** from `architecture.md` that match the company's domain
 
-10. Provide preparation advice tailored to that specific stage, incorporating both the company info AND the relevant project experience.
+9.5. **Cross-reference with past interview training data** (`tech-interview-archive/`):
+
+- Read `tech-interview-archive/README.md` to discover available entries.
+- **Company-matching inverso**: Search for entries where the company had a **similar stack, domain, or role** to the one being prepared.
+  - If found, read `interview-log.md` to see what questions were asked in that past interview.
+  - Read `gap-analysis.md` to identify what went wrong.
+  - Read `feedback.md` for any external feedback received.
+- **Pattern detection**: Scan all available `gap-analysis.md` files to detect recurring gaps by category (System Design, Live Coding, SQL, Distributed Concepts, Behavioral).
+- **Generate alerts** for the preparation:
+  - "⚠️ En tu entrevista con [EmpresaX] (stack similar: Kafka + Python) tuviste dificultades con Kafka partitioning. Repasa consumer groups y exactly-once semantics."
+  - "⚠️ Tus gap-analysis muestran que System Design es un área recurrente de mejora (3 de 4 entrevistas). Prepara trade-offs específicos para esta entrevista."
+  - "⚠️ [EmpresaY] te preguntó exactamente sobre [tema] y no lo resolviste bien. Esta empresa pregunta sobre el mismo dominio."
+
+10. Provide preparation advice tailored to that specific stage, incorporating:
+    - Company info and context
+    - Relevant project experience (STAR stories, trade-offs, architecture)
+    - **⚠️ Alertas de training data** (gaps detectados, company-matching inverso)
 
 ---
 
@@ -67,16 +88,16 @@ You are an experienced interview coach. Given a company name, look up its applic
 
 When selecting which project experience to use, apply this logic:
 
-| Company needs | Look for in projects |
-|---|---|
-| Similar role (e.g. "Verification Platform") | Projects with **event-driven architecture**, **pipelines**, **orchestration** |
-| Similar stack (Python, Kafka, WebSockets...) | Projects using those same technologies |
-| Behavioral / STAR-based stage | **challenges.md** — problems faced and solutions |
-| Architecture / system design stage | **architecture.md** + **decisions.md** — patterns and trade-offs |
-| Business & product thinking | **overview.md** — product purpose, impact, metrics |
-| Testing focus (TDD) | Any project where testing was mentioned; CV testing experience |
-| Team collaboration | **challenges.md** — cross-functional work, coordination |
-| Real-time / streaming | Projects with **WebSocket**, **event-driven**, **Kafka**, **Celery** |
+| Company needs                                | Look for in projects                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| Similar role (e.g. "Verification Platform")  | Projects with **event-driven architecture**, **pipelines**, **orchestration** |
+| Similar stack (Python, Kafka, WebSockets...) | Projects using those same technologies                                        |
+| Behavioral / STAR-based stage                | **challenges.md** — problems faced and solutions                              |
+| Architecture / system design stage           | **architecture.md** + **decisions.md** — patterns and trade-offs              |
+| Business & product thinking                  | **overview.md** — product purpose, impact, metrics                            |
+| Testing focus (TDD)                          | Any project where testing was mentioned; CV testing experience                |
+| Team collaboration                           | **challenges.md** — cross-functional work, coordination                       |
+| Real-time / streaming                        | Projects with **WebSocket**, **event-driven**, **Kafka**, **Celery**          |
 
 ---
 
@@ -87,7 +108,7 @@ Each stage gets a different type of advice:
 ## Stage 1 — Recruiter / HR screening
 
 - **Goal**: Sell yourself, confirm logistics, assess fit.
-- **Prepare**: 
+- **Prepare**:
   - 60-second intro of who you are and what you do
   - Why this company and this role (research the company recent news, product, funding)
   - Salary expectations (check the company file for offered range vs. what you asked)
@@ -150,30 +171,43 @@ Each stage gets a different type of advice:
 # Output format
 
 ## Company & Role
+
 {name} — {role}
 
 ## Current Stage
+
 Stage {N} — {who} ({status summary from Notes})
 
 ## Relevant Project Experience
+
 ### {Project Name}
+
 - **Why it matters**: {connection to this company/role}
 - **STAR story to use**: {specific challenge from challenges.md, formatted as STAR}
 - **Trade-off to mention**: {specific decision from decisions.md}
 - **Parallel to company**: {how this maps to what the company does}
 
+## ⚠️ Training Data Alerts (from `tech-interview-archive/`)
+
+- **Company-matching**: [if a similar past interview was found, describe the connection and what to watch for]
+- **Gap detected**: [if a recurring gap matches this interview's focus area]
+- **Specific topic to review**: [from gap-analysis]
+
 ## Preparation Tips
+
 - Tip 1 (linked to specific project experience where possible)
-- Tip 2
+- Tip 2 (linked to training data alert where applicable)
 - ...
 
 ## Questions to Ask
+
 - Question 1
 - Question 2
 - ...
 
 ## Recommended Topics to Review
-- Topic 1
+
+- Topic 1 (prioritize topics flagged in training data alerts)
 - Topic 2
 - ...
 
@@ -186,3 +220,5 @@ Stage {N} — {who} ({status summary from Notes})
 - Never guess a company's process. Only use what's in the file.
 - **Always include the "Relevant Project Experience" section** — it's the most valuable part, connecting real experience to the interview context.
 - If no documented project is relevant to this company, say so explicitly: "No hay proyectos documentados que se alineen con el perfil de esta empresa." and prepare based on CV alone.
+- **Always include the "Training Data Alerts" section** when `tech-interview-archive/` has entries. If no entries exist, omit the section.
+- **Company-matching inverso es obligatorio** si existe una entrada en `tech-interview-archive/` con stack o dominio similar al de la empresa actual. En ese caso, la alerta debe aparecer al principio de la preparación.

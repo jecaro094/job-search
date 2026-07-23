@@ -17,8 +17,10 @@ No buscas ofertas. No evalúas matches. **Analizas datos agregados** para mejora
 - `data/jobs.csv` — histórico de ofertas evaluadas (scoring, verdict, plataforma)
 - `data/daily/*.md` — logs diarios con evaluaciones detalladas
 - `companies/*/STATUS.md` — estado de candidaturas agrupado
-- `companies/` — notas detalladas (NOTES.md, feedback_*.md) que no están en la DB
+- `companies/` — notas detalladas (NOTES.md, feedback\_\*.md) que no están en la DB
 - `cv/cv.md` — perfil del candidato
+- `projects/` — experiencia laboral documentada para medir profundidad de dominio
+- `tech-interview-archive/` — entrevistas pasadas para análisis de conversión y gaps de skill
 - Engram — decisiones pasadas, preferencias, reglas aprendidas
 
 ---
@@ -30,6 +32,7 @@ No buscas ofertas. No evalúas matches. **Analizas datos agregados** para mejora
 Cada semana, analiza las últimas N ofertas evaluadas y produce:
 
 **Distribución de tecnologías:**
+
 ```
 En las últimas 200 ofertas:
 • Python aparece en el 89%
@@ -42,10 +45,12 @@ En las últimas 200 ofertas:
 ```
 
 **Qué stacks están creciendo** (vs. semanas anteriores):
+
 - Tecnologías trending → aprendelas
 - Tecnologías en declive → no inviertas tiempo
 
 **Brecha de skills:**
+
 ```
 Estás bien posicionado para backend Python, pero:
 • Kubernetes (+30% ofertas compatibles)
@@ -70,6 +75,7 @@ Por tipo de empresa:
 ```
 
 **Qué empresas responden mejor:**
+
 - Por dominio (fintech vs. healthcare vs. SaaS)
 - Por seniority requerida
 - Por stack
@@ -109,18 +115,23 @@ Detecta patrones preocupantes:
 ## 📊 Informe Estratégico Semanal — [fecha]
 
 ### 1. Tendencias de mercado
+
 [gráfico/análisis de tecnologías más demandadas]
 
 ### 2. Tu rendimiento
+
 [conversión rates, qué funciona, qué no]
 
 ### 3. Brechas de skill
+
 [qué aprender para maximizar ofertas compatibles]
 
 ### 4. Recomendaciones
+
 [acciones concretas para esta semana]
 
 ### 5. Predicción
+
 [basado en tendencias, qué tipo de roles crecerán]
 ```
 

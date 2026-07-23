@@ -1,6 +1,6 @@
 # Tareas actuales
 
-> ⏱ Actualizado: 2026-07-10 (candidatura MoneyHash creada + Q&A behavioral guardado)
+> ⏱ Actualizado: 2026-07-22 (Veriff Stage 3 agendada para 31 Jul)
 
 ---
 
@@ -82,11 +82,15 @@
 | Empresa | Estado | Último evento |
 |---------|--------|---------------|
 | **Affirm** | 🟢 Hot | 🎯 Stage 1 agendada — **lunes 13 Jul, 12:00-12:30** |
-| **Veriff** | 🟢 Hot | Stage 2 ✅ con John. Esperando confirmación para Stage 3 |
+| **Veriff** | 🟢 Hot | 🎯 Stage 3 (Arquitectura) agendada — **viernes 31 Jul, 12:00-13:30** |
 | **Law Business Research** | 🟢 Hot | Stage 1 ✅ con Ramon (Manfred). Próximo update ~15 jul |
 | **Novakid School** | 🟡 In progress | Aplicada — Priority 98/100. Stack idéntico (FastAPI, PostgreSQL, Redis, Celery) |
 | **Black Swans** | 🟡 In progress | Aplicada vía LinkedIn |
 | **MoneyHash** | 🟡 In progress | Aplicada — Priority 97/100. Stack perfecto (Django/DRF/PostgreSQL/Redis/K8s) |
+| **Dwelly** 🆕 | 🟡 In progress | Priority 100/100 — Data Migration Platform. Q&A guardado. Pendiente enviar. |
+| **Fundamental** 🆕 | 🟡 In progress | Priority 99/100 — ex-DeepMind. Backend Engineer Extensions. |
+| **Scalera** 🆕 | 🟡 In progress | Priority 97/100 — ETH spin-off. Senior Backend Engineer (Python). |
+| **Booksy** 🆕 | 🟡 In progress | Mid Software Engineer (Python). Aplicada vía LinkedIn. |
 | ~60 más | 🟡 In progress | Importadas desde Notion kanban |
 | 15 | ⚪ En el limbo | Sin movimiento |
 | ~47 | 🔴 Descartadas | Documentadas con feedback |

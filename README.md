@@ -4,33 +4,37 @@ Automated job search agent for remote backend/data/API engineering roles in Spai
 
 ## Overview
 
-This project uses [opencode](https://opencode.ai) with AI agent workflows to proactively search, evaluate, and track LinkedIn job listings. It runs as a CLI-driven assistant that follows strict filtering criteria.
+This project uses [opencode](https://opencode.ai) with AI agent workflows to proactively search, evaluate, and track remote job listings across multiple platforms. It runs as a CLI-driven assistant that follows dual scoring criteria (Technical Fit + Career Fit → Priority).
 
 ## Features
 
-- **Proactive daily search** — searches LinkedIn for new remote backend/data/API jobs in Spain each session
-- **Auto-evaluation** — scores listings against CV (`cv/cv.png`) using the `job-matcher` skill
-- **Strict filtering** — remote-only, product companies (no consultancies), full-time, posted within last week
-- **Persistent tracking** — all evaluations saved to `data/jobs.csv`
+- **Proactive daily search** — searches Himalayas, Hacker News, LinkedIn, RemoteOK, We Work Remotely, ATS platforms (Greenhouse, Lever, Ashby, Workable), and target companies
+- **Auto-evaluation** — scores listings against CV using the `job-matcher` skill (dual scoring: Technical Fit + Career Fit → Priority)
+- **Strict filtering** — 5 hard filters: 100% remote, backend/API role, full-time, Python required, recency ≤14d. Consultancy type is scored gradually (no longer a binary cut)
+- **Persistent tracking** — all evaluations saved to `data/jobs.csv` + daily logs in `data/daily/YYYY-MM-DD.md`
+- **Application workflow** — per-company tracking via `companies/<slug>/STATUS.md` and Q&A via `companies/<slug>/NOTES.md`
 - **Engram memory** — remembers past decisions, rejected companies, and application status across sessions
+- **Cross-reference** — `companies/` ↔ `jobs.csv` via `scripts/company-lookup.sh` to avoid duplicate evaluations
 
 ## Configuration
 
 - `AGENTS.md` — agent instructions and workflow rules
-- `opencode.json` — opencode config (Composio MCP integration)
-- `.opencode/skills/` — custom skills (`multi-platform-search`, `job-matcher`, `store-job`)
-- `data/jobs.csv` — evaluation results log (48 entries as of 2026-07-06)
+- `opencode.json` — opencode config
+- `.opencode/skills/` — custom skills (`multi-platform-search`, `job-matcher`, `store-job`, `prepare-interview`, `show-applied-jobs`, `add-project`, `add-interview`)
+- `.opencode/context/` — criteria, filters, stack, preferences
+- `data/jobs.csv` — evaluation results log (76 entries as of 2026-07-23)
 
 ## Skills
 
 | Skill | Description |
 |---|---|
-| `multi-platform-search` | Searches Himalayas, RemoteOK, WWR, HN, ATS platforms |
-| `job-matcher` | Evaluates job fit against CV and filters |
-| `store-job` | Persists evaluation summaries to CSV |
+| `multi-platform-search` | Searches Himalayas, LinkedIn, RemoteOK, WWR, HN, ATS, and target companies. Includes cross-check with `companies/` to avoid re-evaluating |
+| `job-matcher` | Evaluates job fit against CV with dual scoring (Technical Fit + Career Fit → Priority) |
+| `store-job` | Persists evaluation summaries to `data/jobs.csv` |
 | `prepare-interview` | Prepares for a specific company's next interview stage |
 | `show-applied-jobs` | Lists active candidaturas from `companies/*/STATUS.md` |
 | `add-project` | Documents a past work experience into `projects/` |
+| `add-interview` | Documents a past technical interview into `tech-interview-archive/` |
 
 ## Subagentes
 
@@ -39,7 +43,7 @@ This project uses [opencode](https://opencode.ai) with AI agent workflows to pro
 | `@job-analyst` | Extrae datos estructurados de una oferta de empleo |
 | `@reviewer` | Valida evaluaciones duales antes de persistirlas |
 | `@career-advisor` | Analiza tendencias del mercado y rendimiento de candidaturas |
-| `@interview-coach` | Coach técnico: system design, live coding, SQL, patrones distribuidos |
+| `@interview-coach` | Coach técnico interactivo: system design, live coding, SQL, patrones distribuidos. Modo coaching y Modo repesca |
 
 ---
 
@@ -55,13 +59,13 @@ Then interact with the agent using natural language. Below are examples for each
 ### Comandos de búsqueda y evaluación
 
 ```bash
-# Búsqueda multi-plataforma automática (Himalayas, HN, RemoteOK, WWR, ATS, LinkedIn...)
+# Búsqueda multi-plataforma (Himalayas, HN, RemoteOK, WWR, ATS, LinkedIn...)
 /search
 
 # Evaluar una oferta individual por URL
-/match https://remotive.com/remote-jobs/backend/example
+/match https://example.com/backend-job
 
-# Pipeline completo: diagnóstico + búsqueda + evaluación + persistencia
+# Pipeline completo: diagnóstico + búsqueda multi-plataforma + evaluación + persistencia
 /daily
 ```
 
@@ -69,16 +73,16 @@ Then interact with the agent using natural language. Below are examples for each
 
 ```bash
 # Registrar que has aplicado a una empresa
-/apply veriff
+/apply octopus-energy-group
 
 # Consultar estado de una candidatura
-/estado-candidatura veriff
+/estado-candidatura octopus-energy-group
 
-# Cambiar el estado de una candidatura (e.g. cuando pasas de fase)
-/cambiar-candidatura veriff hot
+# Cambiar el estado de una candidatura (🟢 Hot / 🟡 In progress / 🔴 Discarded / ⚪ Limbo)
+/cambiar-candidatura octopus-energy-group hot
 
 # Listar todas las ofertas activas de un log diario concreto
-/lista-ofertas-diarias 2026-07-13
+/lista-ofertas-diarias 2026-07-23
 
 # Listar todas las ofertas activas de todos los logs consolidados
 /lista-all-ofertas
@@ -115,6 +119,9 @@ skill: prepare-interview for veriff
 # Documentar una experiencia laboral en projects/
 Quiero documentar mi proyecto de Mapfre, usé Django, Kafka y Celery
 
+# Documentar una entrevista técnica pasada
+Tuve una entrevista en Veriff donde me preguntaron sobre Kafka y system design
+
 # Listar candidaturas activas
 ¿Qué candidaturas tengo activas?
 
@@ -129,10 +136,17 @@ Usuario:
   /daily
 
 Agente:
-  Busca ofertas en 6 plataformas, evalúa cada una contra tu CV,
-  aplica filtros duros (remoto, backend, Python, full-time, recencia),
-  calcula dual scoring (Technical Fit + Career Fit),
-  persiste en data/jobs.csv y genera log en data/daily/2026-07-13.md.
+  Diagnostica candidaturas activas, ejecuta búsqueda multi-plataforma,
+  aplica 5 filtros duros, evalúa ofertas con scoring dual
+  (Technical Fit + Career Fit → Priority), persiste en data/jobs.csv
+  y genera log en data/daily/YYYY-MM-DD.md.
+
+Usuario:
+  /apply octopus-energy-group
+
+Agente:
+  Crea companies/octopus-energy-group/STATUS.md, actualiza jobs.csv,
+  guarda en Engram, pregunta si quiere añadir Q&A en NOTES.md.
 
 Usuario:
   @interview-coach ponme un ejercicio de system design

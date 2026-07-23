@@ -12,6 +12,9 @@ data/*
 projects/*
 scripts/*
 
+tech-interview-archive/*
+practice/*
+
 opencode.json
 package-lock.json
 package.json
